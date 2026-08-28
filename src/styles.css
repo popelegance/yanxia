@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --color-bg: #0c1218;
+  --color-surface: #151d26;
+  --color-paper: #f3eee6;
+  --color-paper-lift: #faf7f2;
+  --color-paper-ink: #1c2128;
+  --color-fg: #eef2f6;
+  --color-muted: #8b97a4;
+  --color-accent: #c5cdd6;
+  --color-accent-fg: #0c1218;
+  --color-rain: #7d95aa;
+  --color-ok: #7a9e86;
+  --color-warn: #c4a574;
+  --color-danger: #c47a72;
+  --color-border: #2a3540;
+  --font-display: "Noto Serif SC", "Songti SC", serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Segoe UI", sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --text-2xs: 0.6875rem;
+  --text-micro: 0.625rem;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.leaflet-container {
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+}
+
+.leaflet-control-attribution {
+  background: rgb(12 18 24 / 0.7) !important;
+  color: var(--color-muted) !important;
+  font-size: 10px;
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-rain) !important;
+}
+
+.yanxia-user {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.yanxia-user span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 6px rgb(197 205 214 / 0.28);
+}
+
+.yanxia-pin {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.yanxia-pin i {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: block;
+  border: 2px solid var(--color-bg);
+}
+
+.yanxia-pin.indoor i { background: var(--color-ok); }
+.yanxia-pin.gear i { background: var(--color-rain); }
+.yanxia-pin.canopy i { background: var(--color-muted); }
+.yanxia-pin.active i {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 0 0 4px rgb(197 205 214 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
