@@ -22,12 +22,16 @@ import { adviceLine, rankPlaces } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
 const REPORT_KEY = "yanxia-reports-v1";
+
 type Report = { hasGear?: boolean; closed?: boolean };
 
 function loadReports(): Record<string, Report> {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(localStorage.getItem(REPORT_KEY) || "{}") as Record<string, Report>;
+    return JSON.parse(localStorage.getItem(REPORT_KEY) || "{}") as Record<
+      string,
+      Report
+    >;
   } catch {
     return {};
   }
@@ -59,74 +63,86 @@ export function YanxiaApp() {
 
   return (
     <div className="flex min-h-dvh w-full justify-center bg-bg text-fg">
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col bg-bg">
-        <div className="relative min-h-dvh">
-          <RainMap selectedId={selectedId} onSelect={openPlace} routeTo={selected} />
-          <header className="pointer-events-none absolute inset-x-0 top-0 z-10 p-3">
-            <div className="pointer-events-auto flex items-start justify-between gap-2">
-              <div>
-                <p className="font-display text-2xl leading-tight tracking-tight">檐下</p>
-                <p className="text-xs text-muted">下雨，往最近的干处走</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAbout(true)}
-                className="flex size-11 items-center justify-center rounded-md border border-border bg-surface/90 text-fg"
-                aria-label="产品说明"
-              >
-                <Info className="size-4" strokeWidth={1.75} />
-              </button>
-            </div>
-            <div className="pointer-events-auto mt-3 rounded-lg border border-border bg-surface/92 px-3 py-2.5">
-              <div className="flex items-center gap-2 text-sm">
-                <CloudRain className="size-4 text-rain" strokeWidth={1.75} />
-                <span className="font-medium">{WEATHER.intensity}</span>
-                <span className="text-muted">· {WEATHER.warning}</span>
-                <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs uppercase tracking-wide text-muted">
-                  模拟
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-snug text-muted">{WEATHER.summary}</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-warn">
-                <Waves className="size-3.5" strokeWidth={1.75} />
-                积水 {WEATHER.flood.name} {WEATHER.flood.depthCm} cm · {WEATHER.flood.note}
-              </p>
-            </div>
-          </header>
-          {screen === "walk" && selected ? (
-            <WalkSheet
-              place={selected}
-              arrived={arrived}
-              onBack={() => setScreen("detail")}
-              onArrived={() => setArrived(true)}
-              onReset={() => {
-                setScreen("list");
-                setSelectedId(null);
-                setArrived(false);
-              }}
-            />
-          ) : screen === "detail" && selected ? (
-            <DetailSheet
-              place={selected}
-              intent={intent}
-              report={reports[selected.id]}
-              onBack={() => setScreen("list")}
-              onGo={() => setScreen("walk")}
-              onReport={saveReport}
-            />
-          ) : (
-            <ListSheet
-              intent={intent}
-              onIntent={setIntent}
-              ranked={ranked}
-              advice={adviceLine(top, intent)}
-              selectedId={selectedId}
-              onOpen={openPlace}
-            />
-          )}
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col bg-bg">
+      <div className="relative min-h-dvh">
+        <div className="absolute inset-0 z-0">
+          <RainMap
+            selectedId={selectedId}
+            onSelect={openPlace}
+            routeTo={selected}
+          />
         </div>
-        {about ? <AboutOverlay onClose={() => setAbout(false)} /> : null}
+
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3">
+          <div className="pointer-events-auto flex items-start justify-between gap-2">
+            <div>
+              <p className="font-display text-2xl leading-tight tracking-tight">檐下</p>
+              <p className="text-xs text-muted">下雨，往最近的干处走</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAbout(true)}
+              className="flex size-11 items-center justify-center rounded-md border border-border bg-surface/90 text-fg"
+              aria-label="产品说明"
+            >
+              <Info className="size-4" strokeWidth={1.75} />
+            </button>
+          </div>
+
+          <div className="pointer-events-auto mt-3 rounded-lg border border-border bg-surface/92 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-sm">
+              <CloudRain className="size-4 text-rain" strokeWidth={1.75} />
+              <span className="font-medium">{WEATHER.intensity}</span>
+              <span className="text-muted">· {WEATHER.warning}</span>
+              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs uppercase tracking-wide text-muted">
+                模拟
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-snug text-muted">{WEATHER.summary}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-warn">
+              <Waves className="size-3.5" strokeWidth={1.75} />
+              积水 {WEATHER.flood.name} {WEATHER.flood.depthCm} cm · {WEATHER.flood.note}
+            </p>
+          </div>
+        </header>
+
+        {screen === "walk" && selected ? (
+          <WalkSheet
+            place={selected}
+            arrived={arrived}
+            onBack={() => setScreen("detail")}
+            onArrived={() => setArrived(true)}
+            onReset={() => {
+              setScreen("list");
+              setSelectedId(null);
+              setArrived(false);
+            }}
+          />
+        ) : screen === "detail" && selected ? (
+          <DetailSheet
+            place={selected}
+            intent={intent}
+            report={reports[selected.id]}
+            onBack={() => {
+              setScreen("list");
+            }}
+            onGo={() => setScreen("walk")}
+            onReport={saveReport}
+          />
+        ) : (
+          <ListSheet
+            intent={intent}
+            onIntent={setIntent}
+            ranked={ranked}
+            advice={adviceLine(top, intent)}
+            selectedId={selectedId}
+            onOpen={openPlace}
+          />
+        )}
       </div>
+
+      {about ? <AboutOverlay onClose={() => setAbout(false)} /> : null}
+    </div>
     </div>
   );
 }
@@ -147,7 +163,7 @@ function ListSheet({
   onOpen: (id: string) => void;
 }) {
   return (
-    <section className="absolute inset-x-0 bottom-0 z-10 rounded-t-xl border border-border bg-paper text-paper-ink shadow-lg">
+    <section className="absolute inset-x-0 bottom-0 z-20 rounded-t-xl border border-border bg-paper text-paper-ink shadow-lg">
       <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-paper-ink/15" />
       <div className="px-4 pb-5 pt-3">
         <p className="text-2xs font-medium tracking-wide text-paper-ink/50">
@@ -170,7 +186,8 @@ function ListSheet({
           />
         </div>
         <p className="mt-3 text-sm leading-snug text-pretty text-paper-ink/80">{advice}</p>
-        <p className="mt-1 text-2xs text-paper-ink/45">{USER.label} · 数据均为模拟</p>
+        <p className="mt-1 text-2xs text-paper-ink/45">{USER.label} · 点位模拟 · 底图 Esri</p>
+
         <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
           {ranked.map((place, i) => (
             <li key={place.id}>
@@ -185,7 +202,9 @@ function ListSheet({
                 )}
               >
                 <div className="flex w-10 shrink-0 flex-col items-center justify-center">
-                  <span className="font-display text-xl leading-none tabular-nums">{place.walkMin}</span>
+                  <span className="font-display text-xl leading-none tabular-nums">
+                    {place.walkMin}
+                  </span>
                   <span className="text-micro text-paper-ink/50">分钟</span>
                 </div>
                 <div className="min-w-0 flex-1">
@@ -233,13 +252,17 @@ function IntentChip({
       onClick={onClick}
       className={cn(
         "flex min-h-14 items-center gap-2.5 rounded-lg border px-3 text-left",
-        active ? "border-paper-ink bg-paper-ink text-paper" : "border-paper-ink/15 bg-paper-lift text-paper-ink",
+        active
+          ? "border-paper-ink bg-paper-ink text-paper"
+          : "border-paper-ink/15 bg-paper-lift text-paper-ink",
       )}
     >
       {icon}
       <span>
         <span className="block text-sm font-medium">{label}</span>
-        <span className={cn("block text-xs", active ? "text-paper/70" : "text-paper-ink/50")}>{hint}</span>
+        <span className={cn("block text-xs", active ? "text-paper/70" : "text-paper-ink/50")}>
+          {hint}
+        </span>
       </span>
     </button>
   );
@@ -261,19 +284,40 @@ function DetailSheet({
   onReport: (id: string, patch: Report) => void;
 }) {
   return (
-    <section className="absolute inset-x-0 bottom-0 z-10 rounded-t-xl border border-border bg-paper text-paper-ink">
+    <section className="absolute inset-x-0 bottom-0 z-20 rounded-t-xl border border-border bg-paper text-paper-ink">
       <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-paper-ink/15" />
       <div className="px-4 pb-6 pt-2">
-        <button type="button" onClick={onBack} className="mb-2 flex h-11 items-center gap-1 text-sm text-paper-ink/70">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-2 flex h-11 items-center gap-1 text-sm text-paper-ink/70"
+        >
           <ArrowLeft className="size-4" /> 附近列表
         </button>
         <h1 className="font-display text-2xl leading-tight text-balance">{place.name}</h1>
         <p className="mt-1 text-sm text-paper-ink/60">{place.why}</p>
+
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <Fact icon={<Footprints className="size-3.5" />} label="步行" value={`${place.walkMin} 分钟 · ${place.meters} 米`} />
-          <Fact icon={<Clock className="size-3.5" />} label="开放" value={place.openNow ? `营业中 ${place.hours}` : place.hours} />
-          <Fact icon={<DoorOpen className="size-3.5" />} label="入口" value={place.entrance} />
-          <Fact icon={<Umbrella className="size-3.5" />} label="雨具" value={GEAR_LABEL[place.gear]} />
+          <Fact
+            icon={<Footprints className="size-3.5" />}
+            label="步行"
+            value={`${place.walkMin} 分钟 · ${place.meters} 米`}
+          />
+          <Fact
+            icon={<Clock className="size-3.5" />}
+            label="开放"
+            value={place.openNow ? `营业中 ${place.hours}` : place.hours}
+          />
+          <Fact
+            icon={<DoorOpen className="size-3.5" />}
+            label="入口"
+            value={place.entrance}
+          />
+          <Fact
+            icon={<Umbrella className="size-3.5" />}
+            label="雨具"
+            value={GEAR_LABEL[place.gear]}
+          />
         </dl>
         <p className="mt-2 text-xs leading-snug text-paper-ink/50">{place.gearNote}</p>
         {place.floodOnRoute ? (
@@ -282,15 +326,27 @@ function DetailSheet({
             路线靠近积水点，导引会提示绕行。
           </p>
         ) : null}
+
         <div className="mt-4 flex gap-2">
-          <Button type="button" variant="quiet" className="border-paper-ink/15 bg-paper-lift text-paper-ink" onClick={() => onReport(place.id, { hasGear: true })}>
+          <Button
+            type="button"
+            variant="quiet"
+            className="border-paper-ink/15 bg-paper-lift text-paper-ink"
+            onClick={() => onReport(place.id, { hasGear: true })}
+          >
             {report?.hasGear ? "已记：有伞" : "上报有伞"}
           </Button>
-          <Button type="button" variant="quiet" className="border-paper-ink/15 bg-paper-lift text-paper-ink" onClick={() => onReport(place.id, { closed: true })}>
+          <Button
+            type="button"
+            variant="quiet"
+            className="border-paper-ink/15 bg-paper-lift text-paper-ink"
+            onClick={() => onReport(place.id, { closed: true })}
+          >
             {report?.closed ? "已记：关门" : "上报关门"}
           </Button>
         </div>
         <p className="mt-1 text-2xs text-paper-ink/40">上报仅保存在本机，不上传。</p>
+
         <Button type="button" variant="ink" size="xl" className="mt-4 w-full" onClick={onGo}>
           <Navigation className="size-4" />
           {intent === "gear" ? "去拿雨具" : "去这里躲雨"}
@@ -300,7 +356,15 @@ function DetailSheet({
   );
 }
 
-function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function Fact({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-md border border-paper-ink/10 bg-paper-lift px-3 py-2">
       <dt className="flex items-center gap-1 text-2xs text-paper-ink/45">
@@ -327,12 +391,17 @@ function WalkSheet({
 }) {
   const next = place.steps[0];
   return (
-    <section className="absolute inset-x-0 bottom-0 z-10 rounded-t-xl border border-border bg-paper text-paper-ink">
+    <section className="absolute inset-x-0 bottom-0 z-20 rounded-t-xl border border-border bg-paper text-paper-ink">
       <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-paper-ink/15" />
       <div className="px-4 pb-6 pt-2">
-        <button type="button" onClick={onBack} className="mb-2 flex h-11 items-center gap-1 text-sm text-paper-ink/70">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-2 flex h-11 items-center gap-1 text-sm text-paper-ink/70"
+        >
           <ArrowLeft className="size-4" /> 地点详情
         </button>
+
         {arrived ? (
           <div>
             <p className="font-display text-2xl">已到达檐下</p>
@@ -351,10 +420,16 @@ function WalkSheet({
               <MapPin className="size-4" />
               {place.walkMin} 分钟 · {place.meters} 米 · {place.name}
             </p>
+
             <ol className="mt-4 space-y-2">
               {place.steps.map((step, i) => (
-                <li key={i} className="flex gap-3 rounded-md border border-paper-ink/10 bg-paper-lift px-3 py-2.5">
-                  <span className="font-display text-lg leading-none tabular-nums text-paper-ink/35">{i + 1}</span>
+                <li
+                  key={i}
+                  className="flex gap-3 rounded-md border border-paper-ink/10 bg-paper-lift px-3 py-2.5"
+                >
+                  <span className="font-display text-lg leading-none tabular-nums text-paper-ink/35">
+                    {i + 1}
+                  </span>
                   <span>
                     <span className="block text-sm">{step.text}</span>
                     <span className="mt-0.5 block text-xs text-paper-ink/45">
@@ -383,7 +458,7 @@ function WalkSheet({
 
 function AboutOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="absolute inset-0 z-30 flex items-end bg-bg/70">
+    <div className="absolute inset-0 z-40 flex items-end bg-bg/70">
       <div className="max-h-screen w-full overflow-y-auto rounded-t-xl border border-border bg-paper px-4 pb-8 pt-3 text-paper-ink">
         <div className="mx-auto h-1 w-10 rounded-full bg-paper-ink/15" />
         <div className="mt-3 flex items-center justify-between">
@@ -420,6 +495,27 @@ function AboutBody() {
           <li>地点详情：入口、是否室内、雨具、积水提示。</li>
           <li>湿路步行导引：分段标明露天 / 有顶，一键到达。</li>
         </ol>
+      </section>
+      <section>
+        <h3 className="font-medium">数据来源（本版全部模拟）</h3>
+        <p className="mt-1 text-paper-ink/75">
+          正式版应对接：微信定位；高德 / 腾讯 POI 与步行路径；和风分钟降水；北京水务 × 高德积水；腾讯爱心驿站；汛期党群避险点。本原型用 7 个王府井点位、一条积水、12 分钟后雨弱的分钟降水，均标「模拟」。
+        </p>
+      </section>
+      <section>
+        <h3 className="font-medium">参考与借鉴</h3>
+        <ul className="mt-1 list-disc space-y-1 pl-4 text-paper-ink/75">
+          <li>腾讯地图爱心驿站：专题图层 + 设施标签 + 一键导航。</li>
+          <li>高德积水地图：水深与绕行，改成行人视角。</li>
+          <li>北京地铁雨衣、党群临时避险：雨天实物网络，单独成类。</li>
+          <li>日本 aikasa：两分钟内拿到伞的密度，本版只仿「找到有伞的点」。</li>
+        </ul>
+      </section>
+      <section>
+        <h3 className="font-medium">设计原则</h3>
+        <p className="mt-1 text-paper-ink/75">
+          湿手可用：大按钮、高对比、少字。打开即决策，不搜关键词。地图用暗色底图，列表用浅纸色，模拟「街上湿、檐下干」。
+        </p>
       </section>
     </div>
   );
