@@ -4,25 +4,8 @@
 
 无登录、无支付。地图、天气、积水、点位均为**模拟数据**（王府井大街）。
 
-仓库：[https://github.com/popelegance/yanxia](https://github.com/popelegance/yanxia)
-
-## 本地运行
-
-需要 Node.js 22。
-
-```bash
-git clone https://github.com/popelegance/yanxia.git
-cd yanxia
-npm install
-npm run dev
-```
-
-开发服务默认 `0.0.0.0:8080`。
-
-```bash
-npm run build
-npm run typecheck
-```
+- 仓库：https://github.com/popelegance/yanxia
+- 源码压缩包：https://github.com/popelegance/yanxia/archive/refs/heads/main.zip
 
 ## 怎么用
 
@@ -30,12 +13,10 @@ npm run typecheck
 2. 点卡片或地图圆点看入口、室内、雨具、积水
 3. 点「去这里躲雨 / 去拿雨具」按分段路走
 
-右上角 ⓘ 为产品说明（用户、功能、数据来源、参考产品）。
-
 ## 源码位置
 
 - `src/data/places.ts` 模拟点位
 - `src/data/weather.ts` 模拟天气与积水
 - `src/lib/rank.ts` 意图排序
-- `src/components/yanxia-app.tsx` 主界面（列表 / 详情 / 导引）
+- `src/components/yanxia-app.tsx` 主界面
 - `src/components/rain-map.tsx` Leaflet 暗色地图
