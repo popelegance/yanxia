@@ -41,8 +41,15 @@
     font-family: var(--font-sans);
   }
 
-  h1, h2, h3 { text-wrap: balance; }
-  p { text-wrap: pretty; }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
 
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -51,8 +58,45 @@
 }
 
 .leaflet-container {
+  z-index: 0;
   background: var(--color-bg);
   font-family: var(--font-sans);
+}
+
+.leaflet-pane,
+.leaflet-map-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: auto;
+}
+
+.leaflet-tile-pane {
+  z-index: 1;
+}
+
+.leaflet-overlay-pane {
+  z-index: 2;
+}
+
+.leaflet-marker-pane {
+  z-index: 3;
+}
+
+.yanxia-osm {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95) saturate(0.25);
+}
+
+.leaflet-tile {
+  visibility: visible;
+}
+
+.leaflet-tile-loaded[src^="data:"] {
+  opacity: 0 !important;
 }
 
 .leaflet-control-attribution {
@@ -98,9 +142,18 @@
   border: 2px solid var(--color-bg);
 }
 
-.yanxia-pin.indoor i { background: var(--color-ok); }
-.yanxia-pin.gear i { background: var(--color-rain); }
-.yanxia-pin.canopy i { background: var(--color-muted); }
+.yanxia-pin.indoor i {
+  background: var(--color-ok);
+}
+
+.yanxia-pin.gear i {
+  background: var(--color-rain);
+}
+
+.yanxia-pin.canopy i {
+  background: var(--color-muted);
+}
+
 .yanxia-pin.active i {
   width: 16px;
   height: 16px;

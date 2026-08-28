@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Map as LeafletMap, Marker, Polyline } from "leaflet";
+import type { Map as LeafletMap, Marker, Polyline, TileLayer } from "leaflet";
 import { PLACES, USER, type Place } from "@/data/places";
 
 type Props = {
@@ -8,11 +8,20 @@ type Props = {
   routeTo: Place | null;
 };
 
+/** 1×1 透明图：失败瓦片不再画出「API KEY REQUIRED」大字 */
+const BLANK =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+const ESRI_DARK =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
 export function RainMap({ selectedId, onSelect, routeTo }: Props) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<Record<string, Marker>>({});
   const lineRef = useRef<Polyline | null>(null);
+  const tilesRef = useRef<TileLayer | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -20,6 +29,7 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
     const el = elRef.current;
     if (!el) return;
     let cancelled = false;
+    let usedFallback = false;
 
     void (async () => {
       const L = await import("leaflet");
@@ -27,14 +37,30 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
 
       const map = L.map(el, {
         zoomControl: false,
-        attributionControl: true,
+        attributionControl: false,
       }).setView([USER.lat, USER.lng], 16);
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OSM &copy; CARTO",
-        subdomains: "abcd",
-        maxZoom: 19,
-      }).addTo(map);
+      const esri = L.tileLayer(ESRI_DARK, {
+        maxZoom: 16,
+        errorTileUrl: BLANK,
+        className: "yanxia-tiles",
+      });
+
+      esri.on("tileerror", () => {
+        if (usedFallback || cancelled) return;
+        usedFallback = true;
+        map.removeLayer(esri);
+        const osm = L.tileLayer(OSM, {
+          maxZoom: 19,
+          errorTileUrl: BLANK,
+          className: "yanxia-tiles yanxia-osm",
+        });
+        osm.addTo(map);
+        tilesRef.current = osm;
+      });
+
+      esri.addTo(map);
+      tilesRef.current = esri;
 
       const userIcon = L.divIcon({
         className: "",
@@ -47,6 +73,7 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
       for (const place of PLACES) {
         const marker = L.marker([place.lat, place.lng], {
           icon: pinIcon(L, place, false),
+          zIndexOffset: 200,
         }).addTo(map);
         marker.on("click", () => onSelectRef.current(place.id));
         markersRef.current[place.id] = marker;
@@ -62,6 +89,7 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
       mapRef.current = null;
       markersRef.current = {};
       lineRef.current = null;
+      tilesRef.current = null;
     };
   }, []);
 
@@ -78,8 +106,10 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
     lineRef.current?.remove();
     lineRef.current = null;
+
     void import("leaflet").then((L) => {
       const current = mapRef.current;
       if (!current) return;
@@ -92,14 +122,19 @@ export function RainMap({ selectedId, onSelect, routeTo }: Props) {
           [USER.lat, USER.lng],
           [routeTo.lat, routeTo.lng],
         ],
-        { color: "#c5cdd6", weight: 3, opacity: 0.85, dashArray: "6 8" },
+        {
+          color: "#c5cdd6",
+          weight: 3,
+          opacity: 0.85,
+          dashArray: "6 8",
+        },
       ).addTo(current);
       lineRef.current = line;
       current.fitBounds(line.getBounds().pad(0.35), { animate: true });
     });
   }, [routeTo]);
 
-  return <div ref={elRef} className="absolute inset-0 bg-bg" />;
+  return <div ref={elRef} className="absolute inset-0 z-0 bg-bg" />;
 }
 
 function pinIcon(
