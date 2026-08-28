@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ChevronRight,
@@ -7,6 +7,7 @@ import {
   DoorOpen,
   Footprints,
   Info,
+  LocateFixed,
   MapPin,
   Navigation,
   Shield,
@@ -15,9 +16,19 @@ import {
 } from "lucide-react";
 import { RainMap } from "@/components/rain-map";
 import { Button } from "@/components/ui/button";
-import { GEAR_LABEL, KIND_LABEL, PLACES, USER, type Place } from "@/data/places";
+import {
+  DEMO_USER,
+  GEAR_LABEL,
+  KIND_LABEL,
+  isNearDemo,
+  placesAround,
+  type Place,
+  type UserLoc,
+} from "@/data/places";
 import { WEATHER } from "@/data/weather";
 import type { Intent, Screen } from "@/lib/intent";
+import { requestPosition, type LocStatus } from "@/lib/geo";
+import type { NearbyResult } from "@/lib/osm-places";
 import { adviceLine, rankPlaces } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
@@ -44,10 +55,111 @@ export function YanxiaApp() {
   const [about, setAbout] = useState(false);
   const [reports, setReports] = useState<Record<string, Report>>(loadReports);
   const [arrived, setArrived] = useState(false);
+  const [user, setUser] = useState<UserLoc>(DEMO_USER);
+  const [locStatus, setLocStatus] = useState<LocStatus>("locating");
+  const [placeSource, setPlaceSource] = useState<"pending" | "osm" | "fallback">("pending");
+  const [areaName, setAreaName] = useState("");
+  const [livePlaces, setLivePlaces] = useState<Place[] | null>(null);
 
-  const ranked = useMemo(() => rankPlaces(PLACES, intent), [intent]);
-  const selected = PLACES.find((p) => p.id === selectedId) ?? null;
+  const fallbackPlaces = useMemo(() => placesAround(user), [user]);
+  const places = livePlaces ?? fallbackPlaces;
+  const ranked = useMemo(() => rankPlaces(places, intent), [places, intent]);
+  const selected = places.find((p) => p.id === selectedId) ?? null;
   const top = ranked[0];
+  const nearDemo = isNearDemo(user);
+
+  const locLabel =
+    locStatus === "locating"
+      ? "正在获取位置…"
+      : placeSource === "pending"
+        ? locStatus === "live"
+          ? "已定位，正在找附近店…"
+          : "正在查找附近店…"
+        : placeSource === "osm"
+          ? locStatus === "live"
+            ? `${areaName || "当前位置"} · 附近店来自地图`
+            : `${areaName || "王府井"} · 附近店来自地图`
+          : locStatus === "live"
+            ? "已用当前位置 · 附近店暂用模拟"
+            : "未拿到定位 · 王府井演示 · 点位模拟";
+
+  async function locate() {
+    setLocStatus("locating");
+    const pos = await requestPosition();
+    if (!pos) {
+      setUser(DEMO_USER);
+      setLocStatus("demo");
+      return;
+    }
+    setUser({
+      lat: pos.lat,
+      lng: pos.lng,
+      label: "当前位置",
+      source: "live",
+    });
+    setLocStatus("live");
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const pos = await requestPosition();
+      if (cancelled) return;
+      if (!pos) {
+        setUser(DEMO_USER);
+        setLocStatus("demo");
+        return;
+      }
+      setUser({
+        lat: pos.lat,
+        lng: pos.lng,
+        label: "当前位置",
+        source: "live",
+      });
+      setLocStatus("live");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fallback = placesAround(user);
+    setPlaceSource("pending");
+    setLivePlaces(fallback);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/nearby?lat=${user.lat}&lng=${user.lng}`);
+        if (!res.ok) throw new Error("nearby");
+        const data = (await res.json()) as NearbyResult;
+        if (cancelled) return;
+        if (data.source === "osm" && data.places.length >= 3) {
+          setLivePlaces(data.places);
+          setPlaceSource("osm");
+          setAreaName(data.area);
+        } else {
+          setLivePlaces(data.places.length ? data.places : fallback);
+          setPlaceSource("fallback");
+          setAreaName(data.area || "");
+        }
+      } catch {
+        if (cancelled) return;
+        setLivePlaces(fallback);
+        setPlaceSource("fallback");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.lat, user.lng]);
+
+  useEffect(() => {
+    if (selectedId && !places.some((p) => p.id === selectedId)) {
+      setSelectedId(null);
+      setScreen("list");
+    }
+  }, [places, selectedId]);
 
   function openPlace(id: string) {
     setSelectedId(id);
@@ -67,6 +179,8 @@ export function YanxiaApp() {
       <div className="relative min-h-dvh">
         <div className="absolute inset-0 z-0">
           <RainMap
+            user={user}
+            places={places}
             selectedId={selectedId}
             onSelect={openPlace}
             routeTo={selected}
@@ -79,14 +193,25 @@ export function YanxiaApp() {
               <p className="font-display text-2xl leading-tight tracking-tight">檐下</p>
               <p className="text-xs text-muted">下雨，往最近的干处走</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setAbout(true)}
-              className="flex size-11 items-center justify-center rounded-md border border-border bg-surface/90 text-fg"
-              aria-label="产品说明"
-            >
-              <Info className="size-4" strokeWidth={1.75} />
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => void locate()}
+                disabled={locStatus === "locating"}
+                className="flex size-11 items-center justify-center rounded-md border border-border bg-surface/90 text-fg disabled:opacity-50"
+                aria-label="使用当前位置"
+              >
+                <LocateFixed className="size-4" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbout(true)}
+                className="flex size-11 items-center justify-center rounded-md border border-border bg-surface/90 text-fg"
+                aria-label="产品说明"
+              >
+                <Info className="size-4" strokeWidth={1.75} />
+              </button>
+            </div>
           </div>
 
           <div className="pointer-events-auto mt-3 rounded-lg border border-border bg-surface/92 px-3 py-2.5">
@@ -94,14 +219,15 @@ export function YanxiaApp() {
               <CloudRain className="size-4 text-rain" strokeWidth={1.75} />
               <span className="font-medium">{WEATHER.intensity}</span>
               <span className="text-muted">· {WEATHER.warning}</span>
-              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs uppercase tracking-wide text-muted">
-                模拟
+              <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-2xs tracking-wide text-muted">
+                {placeSource === "osm" ? "地图" : locStatus === "live" ? "定位" : "模拟"}
               </span>
             </div>
             <p className="mt-1 text-xs leading-snug text-muted">{WEATHER.summary}</p>
             <p className="mt-1 flex items-center gap-1.5 text-xs text-warn">
               <Waves className="size-3.5" strokeWidth={1.75} />
-              积水 {WEATHER.flood.name} {WEATHER.flood.depthCm} cm · {WEATHER.flood.note}
+              积水 {nearDemo ? WEATHER.flood.name : "附近下凹路段（模拟）"} {WEATHER.flood.depthCm}{" "}
+              cm · {WEATHER.flood.note}
             </p>
           </div>
         </header>
@@ -136,6 +262,7 @@ export function YanxiaApp() {
             ranked={ranked}
             advice={adviceLine(top, intent)}
             selectedId={selectedId}
+            locLabel={locLabel}
             onOpen={openPlace}
           />
         )}
@@ -153,6 +280,7 @@ function ListSheet({
   ranked,
   advice,
   selectedId,
+  locLabel,
   onOpen,
 }: {
   intent: Intent;
@@ -160,6 +288,7 @@ function ListSheet({
   ranked: Place[];
   advice: string;
   selectedId: string | null;
+  locLabel: string;
   onOpen: (id: string) => void;
 }) {
   return (
@@ -186,7 +315,9 @@ function ListSheet({
           />
         </div>
         <p className="mt-3 text-sm leading-snug text-pretty text-paper-ink/80">{advice}</p>
-        <p className="mt-1 text-2xs text-paper-ink/45">{USER.label} · 点位模拟 · 底图 Esri</p>
+        <p className="mt-1 text-2xs text-paper-ink/45" aria-live="polite">
+          {locLabel}
+        </p>
 
         <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
           {ranked.map((place, i) => (
@@ -443,7 +574,7 @@ function WalkSheet({
             {place.floodOnRoute ? (
               <p className="mt-3 flex gap-1.5 text-xs text-danger">
                 <Waves className="size-3.5 shrink-0" />
-                南口下凹路段积水约 8 cm，走西侧入口，不要下桥坑。
+                附近下凹路段积水约 8 cm（模拟），走西侧入口，不要下桥坑。
               </p>
             ) : null}
             <Button type="button" variant="ink" size="xl" className="mt-5 w-full" onClick={onArrived}>
@@ -479,13 +610,13 @@ function AboutBody() {
       <section>
         <h3 className="font-medium">产品</h3>
         <p className="mt-1 text-paper-ink/75">
-          檐下：给不认路的北京路人用的避雨导引。打开就能看附近能进的干处，三步内出发。无登录、无支付。
+          打开时请求手机定位，再按位置查找附近能进的店和车站。允许定位后，躲雨点和买伞点会换成你身边的真实地点（来自 OpenStreetMap）；雨具库存、天气和积水仍为模拟。拿不到定位则用王府井演示。无登录、无支付。
         </p>
       </section>
       <section>
         <h3 className="font-medium">用户与场景</h3>
         <p className="mt-1 text-paper-ink/75">
-          游客、出差行人、突然遇雨且没带伞的路人。地点固定为王府井大街中段（模拟）。需求只有两件：立刻躲进去，或立刻拿到雨具离开。
+          游客、出差行人、突然遇雨且没带伞的路人。允许定位后用地图上的真实位置；拿不到定位则演示王府井大街中段。需求只有两件：立刻躲进去，或立刻拿到雨具离开。
         </p>
       </section>
       <section>
@@ -499,7 +630,7 @@ function AboutBody() {
       <section>
         <h3 className="font-medium">数据来源（本版全部模拟）</h3>
         <p className="mt-1 text-paper-ink/75">
-          正式版应对接：微信定位；高德 / 腾讯 POI 与步行路径；和风分钟降水；北京水务 × 高德积水；腾讯爱心驿站；汛期党群避险点。本原型用 7 个王府井点位、一条积水、12 分钟后雨弱的分钟降水，均标「模拟」。
+          正式版应对接：微信定位；高德 / 腾讯 POI 与步行路径；和风分钟降水；北京水务 × 高德积水；腾讯爱心驿站；汛期党群避险点。本原型：浏览器定位 + OpenStreetMap 附近店/车站；天气与积水仍为模拟。
         </p>
       </section>
       <section>
