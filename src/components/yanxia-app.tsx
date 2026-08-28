@@ -29,6 +29,7 @@ import { WEATHER } from "@/data/weather";
 import type { Intent, Screen } from "@/lib/intent";
 import { requestPosition, type LocStatus } from "@/lib/geo";
 import type { NearbyResult } from "@/lib/osm-places";
+import { loadNearby } from "@/lib/osm-places";
 import { adviceLine, rankPlaces } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,26 @@ function loadReports(): Record<string, Report> {
   }
 }
 
+async function queryNearby(user: { lat: number; lng: number }): Promise<NearbyResult> {
+  try {
+    const res = await fetch(`/api/nearby?lat=${user.lat}&lng=${user.lng}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as NearbyResult;
+      if (Array.isArray(data.places) && data.places.length) return data;
+    }
+  } catch {
+    /* 接口失败时改为浏览器直查地图 */
+  }
+  try {
+    return await loadNearby(user);
+  } catch {
+    return { area: "", source: "fallback", places: [] };
+  }
+}
+
 export function YanxiaApp() {
   const [intent, setIntent] = useState<Intent>("shelter");
   const [screen, setScreen] = useState<Screen>("list");
@@ -62,7 +83,15 @@ export function YanxiaApp() {
   const [livePlaces, setLivePlaces] = useState<Place[] | null>(null);
 
   const fallbackPlaces = useMemo(() => placesAround(user), [user]);
-  const places = livePlaces ?? fallbackPlaces;
+  const locating = locStatus === "locating";
+  const places =
+    locating || placeSource === "pending"
+      ? []
+      : livePlaces && livePlaces.length
+        ? livePlaces
+        : locStatus === "demo"
+          ? fallbackPlaces
+          : [];
   const ranked = useMemo(() => rankPlaces(places, intent), [places, intent]);
   const selected = places.find((p) => p.id === selectedId) ?? null;
   const top = ranked[0];
@@ -80,7 +109,7 @@ export function YanxiaApp() {
             ? `${areaName || "当前位置"} · 附近店来自地图`
             : `${areaName || "王府井"} · 附近店来自地图`
           : locStatus === "live"
-            ? "已用当前位置 · 附近店暂用模拟"
+            ? "已定位，但没找到附近店，请再点定位"
             : "未拿到定位 · 王府井演示 · 点位模拟";
 
   async function locate() {
@@ -124,35 +153,28 @@ export function YanxiaApp() {
   }, []);
 
   useEffect(() => {
+    if (locStatus === "locating") return;
     let cancelled = false;
-    const fallback = placesAround(user);
     setPlaceSource("pending");
-    setLivePlaces(fallback);
+    setLivePlaces(null);
+    const demoFallback = locStatus === "demo" ? placesAround(user) : [];
     void (async () => {
-      try {
-        const res = await fetch(`/api/nearby?lat=${user.lat}&lng=${user.lng}`);
-        if (!res.ok) throw new Error("nearby");
-        const data = (await res.json()) as NearbyResult;
-        if (cancelled) return;
-        if (data.source === "osm" && data.places.length >= 3) {
-          setLivePlaces(data.places);
-          setPlaceSource("osm");
-          setAreaName(data.area);
-        } else {
-          setLivePlaces(data.places.length ? data.places : fallback);
-          setPlaceSource("fallback");
-          setAreaName(data.area || "");
-        }
-      } catch {
-        if (cancelled) return;
-        setLivePlaces(fallback);
-        setPlaceSource("fallback");
+      const data = await queryNearby(user);
+      if (cancelled) return;
+      if (data.places.length) {
+        setLivePlaces(data.places);
+        setPlaceSource(data.source === "osm" ? "osm" : "fallback");
+        setAreaName(data.area);
+        return;
       }
+      setLivePlaces(demoFallback);
+      setPlaceSource("fallback");
+      setAreaName(data.area || "");
     })();
     return () => {
       cancelled = true;
     };
-  }, [user.lat, user.lng]);
+  }, [user.lat, user.lng, locStatus]);
 
   useEffect(() => {
     if (selectedId && !places.some((p) => p.id === selectedId)) {
@@ -263,6 +285,11 @@ export function YanxiaApp() {
             advice={adviceLine(top, intent)}
             selectedId={selectedId}
             locLabel={locLabel}
+            emptyHint={
+              locating || placeSource === "pending"
+                ? "正在查找附近能进的店…"
+                : "这一带地图上还没找到足够的室内点，走到商店更密的路再试。"
+            }
             onOpen={openPlace}
           />
         )}
@@ -281,6 +308,7 @@ function ListSheet({
   advice,
   selectedId,
   locLabel,
+  emptyHint,
   onOpen,
 }: {
   intent: Intent;
@@ -289,6 +317,7 @@ function ListSheet({
   advice: string;
   selectedId: string | null;
   locLabel: string;
+  emptyHint: string;
   onOpen: (id: string) => void;
 }) {
   return (
@@ -319,6 +348,9 @@ function ListSheet({
           {locLabel}
         </p>
 
+        {ranked.length === 0 ? (
+          <p className="mt-3 text-sm leading-snug text-paper-ink/60">{emptyHint}</p>
+        ) : (
         <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto">
           {ranked.map((place, i) => (
             <li key={place.id}>
@@ -359,6 +391,7 @@ function ListSheet({
             </li>
           ))}
         </ul>
+        )}
       </div>
     </section>
   );

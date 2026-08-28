@@ -13,7 +13,9 @@ export const Route = createFileRoute("/api/nearby")({
         }
         try {
           const data = await loadNearby({ lat, lng });
-          return Response.json(data);
+          return Response.json(data, {
+            headers: { "Cache-Control": "no-store" },
+          });
         } catch {
           return Response.json({ area: "", source: "fallback", places: [] }, { status: 502 });
         }

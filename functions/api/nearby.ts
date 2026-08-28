@@ -210,9 +210,12 @@ export const onRequestGet: PagesFunction = async (context) => {
   const user = { lat, lng };
   const [area, elements] = await Promise.all([reverseArea(user), overpass(user)]);
   const places = pick(elements.map((el) => toPlace(el, user)).filter((p): p is Place => Boolean(p)));
-  return Response.json({
-    area: area || "当前位置",
-    source: places.length >= 3 ? "osm" : "fallback",
-    places,
-  });
+  return Response.json(
+    {
+      area: area || "当前位置",
+      source: places.length >= 1 ? "osm" : "fallback",
+      places,
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 };

@@ -1,5 +1,4 @@
 import {
-  placesAround,
   type Cover,
   type Gear,
   type Place,
@@ -305,12 +304,12 @@ export async function loadNearby(user: LatLng): Promise<NearbyResult> {
     .map((el) => toPlace(el, user))
     .filter((p): p is Place => Boolean(p));
   const places = pickDiverse(candidates);
-  if (places.length >= 3) {
+  if (places.length >= 1) {
     return { area: area || "当前位置", source: "osm", places };
   }
   return {
     area: area || "",
     source: "fallback",
-    places: placesAround(user),
+    places: [],
   };
 }
