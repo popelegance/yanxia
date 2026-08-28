@@ -1,3 +1,5 @@
+import { haversineMeters, walkMinutes, type LatLng } from "@/lib/geo";
+
 export type Cover = "indoor" | "canopy";
 export type Gear = "sell" | "lend" | "free" | "none" | "unknown";
 export type PlaceKind =
@@ -35,12 +37,50 @@ export type Place = {
   steps: WalkStep[];
 };
 
+export type UserLoc = LatLng & {
+  label: string;
+  source: "live" | "demo";
+};
+
 /** 模拟定位：王府井大街步行街中段 */
-export const USER = {
+export const DEMO_USER: UserLoc = {
   lat: 39.9142,
   lng: 116.4105,
   label: "王府井大街（模拟定位）",
+  source: "demo",
 };
+
+/** @deprecated 用 DEMO_USER */
+export const USER = DEMO_USER;
+
+const SHIFT_AFTER_M = 1500;
+
+/** 把模拟点放到用户身边：离王府井超过 1.5 km 时整体平移，并按真实距离重算步行。 */
+export function placesAround(user: LatLng): Place[] {
+  const far = haversineMeters(user, DEMO_USER) > SHIFT_AFTER_M;
+  return PLACES.map((place) => {
+    const lat = far ? user.lat + (place.lat - DEMO_USER.lat) : place.lat;
+    const lng = far ? user.lng + (place.lng - DEMO_USER.lng) : place.lng;
+    const meters = Math.round(haversineMeters(user, { lat, lng }));
+    const walkMin = walkMinutes(meters);
+    const stepTotal = place.steps.reduce((sum, step) => sum + step.meters, 0) || meters || 1;
+    return {
+      ...place,
+      lat,
+      lng,
+      meters,
+      walkMin,
+      steps: place.steps.map((step) => ({
+        ...step,
+        meters: Math.round((step.meters / stepTotal) * meters),
+      })),
+    };
+  });
+}
+
+export function isNearDemo(user: LatLng): boolean {
+  return haversineMeters(user, DEMO_USER) <= SHIFT_AFTER_M;
+}
 
 export const PLACES: Place[] = [
   {
@@ -183,7 +223,7 @@ export const PLACES: Place[] = [
   },
   {
     id: "yizhan",
-    name: "金橙子众享驿站",
+    name: "金檔子众享驿站",
     kind: "station",
     cover: "indoor",
     gear: "free",
